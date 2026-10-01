@@ -24,18 +24,33 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
     error: null,
   });
 
+  const [recentInvoices, setRecentInvoices] = useState([]);
+
   const checkLiveDatabase = async () => {
     setDbStatus(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const [cRes, pRes, prRes, uRes] = await Promise.all([
+      const [cRes, pRes, prRes, uRes, fRes] = await Promise.all([
         supabase.from('cliente').select('*', { count: 'exact', head: true }),
         supabase.from('producto').select('stock_actual, stock_minimo, es_inventariable, activo'),
         supabase.from('proveedor').select('*', { count: 'exact', head: true }),
         supabase.from('usuario').select('*', { count: 'exact', head: true }),
+        supabase.from('factura').select('*, cliente(nombre)').order('numero_factura', { ascending: false }).limit(5),
       ]);
 
       const prods = pRes.data || [];
       const lowCount = prods.filter(p => p.activo && p.es_inventariable && Number(p.stock_actual) < Number(p.stock_minimo)).length;
+      const invs = fRes.data || [];
+
+      setRecentInvoices(
+        invs.map(f => ({
+          id: `#${f.numero_factura}`,
+          client: f.cliente?.nombre || 'Cliente General',
+          total: `$${Number(f.total_factura).toFixed(2)}`,
+          status: f.estado,
+          statusColor: f.estado === 'ANULADA' ? '#DC2626' : f.estado === 'PAGADA' ? '#059669' : '#D97706',
+          statusBg: f.estado === 'ANULADA' ? '#FEF2F2' : f.estado === 'PAGADA' ? '#ECFDF5' : '#FFFBEB',
+        }))
+      );
 
       setDbStatus({
         loading: false,
@@ -102,14 +117,6 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
       color: '#DC2626',
       bgColor: '#FEF2F2',
     },
-  ];
-
-  const recentInvoices = [
-    { id: 'F-1005', client: 'Juan Pérez', total: '$120.00', status: 'Pagada', statusColor: '#059669', statusBg: '#ECFDF5' },
-    { id: 'F-1004', client: 'Ana García', total: '$65.50', status: 'Pendiente', statusColor: '#D97706', statusBg: '#FFFBEB' },
-    { id: 'F-1003', client: 'Juan Pérez', total: '$120.00', status: 'Pagada', statusColor: '#059669', statusBg: '#ECFDF5' },
-    { id: 'F-1002', client: 'Sra. Jenny', total: '$85.00', status: 'Pagada', statusColor: '#059669', statusBg: '#ECFDF5' },
-    { id: 'F-1001', client: 'Tía Elsa', total: '$150.00', status: 'Pendiente', statusColor: '#D97706', statusBg: '#FFFBEB' },
   ];
 
   return (

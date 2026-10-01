@@ -6,7 +6,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Clientes from './components/Clientes';
 import Productos from './components/Productos';
-import FacturacionPreview from './components/FacturacionPreview';
+import FacturacionModule from './components/FacturacionModule';
 import ConfiguracionView from './components/ConfiguracionView';
 import ComprasInventarioPreview from './components/ComprasInventarioPreview';
 import ReportesPreview from './components/ReportesPreview';
@@ -78,7 +78,7 @@ function MainApp() {
           />
         );
       case 'facturacion':
-        return <FacturacionPreview selectedClient={selectedClientForInvoice} />;
+        return <FacturacionModule preselectedClient={selectedClientForInvoice} />;
       case 'clientes':
         return <Clientes onFacturarCliente={handleFacturarCliente} />;
       case 'productos':

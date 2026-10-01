@@ -153,8 +153,8 @@ export default function FacturaDetalleModal({ facturaId, isOpen, onClose, onFact
           </div>
         </div>
 
-        {/* Modal Body */}
-        <div style={styles.body}>
+        {/* Modal Body with vertical scrollbar */}
+        <div style={styles.body} className="modal-scroll">
           {loading ? (
             <div style={styles.loadingBox}>
               <div style={styles.spinner}></div>
@@ -213,7 +213,7 @@ export default function FacturaDetalleModal({ facturaId, isOpen, onClose, onFact
               </div>
 
               {/* Totals Summary */}
-              <div style={styles.summaryGrid}>
+              <div style={styles.summaryGrid} className="responsive-two-col">
                 <div style={styles.summaryLeft}>
                   {f.observaciones && (
                     <div style={styles.obsBox}>
@@ -323,12 +323,16 @@ export default function FacturaDetalleModal({ facturaId, isOpen, onClose, onFact
 
               <form onSubmit={handleAnular}>
                 <div style={styles.anularField}>
-                  <label style={styles.anularLabel}>Motivo de la anulación:</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={styles.anularLabel}>Motivo de la anulación:</label>
+                    <span style={{ fontSize: '11px', color: '#94A3B8' }}>{motivoAnulacion?.length || 0}/250</span>
+                  </div>
                   <textarea
                     rows={3}
+                    maxLength={250}
                     placeholder="Ej: Error en cantidad facturada / Cliente canceló el pedido"
                     value={motivoAnulacion}
-                    onChange={(e) => setMotivoAnulacion(e.target.value)}
+                    onChange={(e) => setMotivoAnulacion(e.target.value.slice(0, 250))}
                     style={styles.anularTextarea}
                     autoFocus
                   />
@@ -373,7 +377,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
-    padding: '16px',
+    padding: '20px 16px',
+    overflowY: 'auto',
   },
   modal: {
     position: 'relative',
@@ -383,6 +388,9 @@ const styles = {
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
     width: '100%',
     maxWidth: '740px',
+    maxHeight: 'calc(100vh - 40px)',
+    display: 'flex',
+    flexDirection: 'column',
     overflow: 'hidden',
     animation: 'fadeIn 0.2s ease-out',
   },
@@ -393,8 +401,10 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
+    flexShrink: 0,
     flexWrap: 'wrap',
     gap: '12px',
+    zIndex: 2,
   },
   headerLeft: {
     display: 'flex',
@@ -469,8 +479,9 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '18px',
-    maxHeight: '75vh',
     overflowY: 'auto',
+    flex: 1,
+    minHeight: 0,
   },
   clientBox: {
     backgroundColor: '#F8FAFC',
@@ -507,7 +518,8 @@ const styles = {
   tableCard: {
     border: '1px solid #E2E8F0',
     borderRadius: '10px',
-    overflow: 'hidden',
+    overflowX: 'auto',
+    backgroundColor: '#FFFFFF',
   },
   table: {
     width: '100%',

@@ -155,7 +155,7 @@ export async function crearFactura({
       total_abonado: parseFloat(total_abonado) || 0,
       saldo_pendiente: parseFloat(saldo_pendiente) || 0,
       estado: estado || (parseFloat(saldo_pendiente) <= 0 ? 'PAGADA' : 'PENDIENTE'),
-      observaciones: observaciones?.trim() || null,
+      observaciones: observaciones ? observaciones.trim().slice(0, 300) : null,
     };
 
     const { data: nuevaFactura, error: fErr } = await supabase
@@ -284,13 +284,17 @@ export async function anularFactura(id_factura, motivo, usuarioId = 1) {
     }
 
     // 2. Marcar como ANULADA
+    const cleanMotivo = (motivo || 'Anulación solicitada').trim().slice(0, 200);
+    const prevObs = factura.observaciones ? factura.observaciones.slice(0, 100) : '';
+    const updatedObs = prevObs
+      ? `${prevObs} | ANULADA: ${cleanMotivo}`.slice(0, 300)
+      : `ANULADA: ${cleanMotivo}`.slice(0, 300);
+
     const { error: upErr } = await supabase
       .from('factura')
       .update({
         estado: 'ANULADA',
-        observaciones: factura.observaciones
-          ? `${factura.observaciones} | ANULADA: ${motivo}`
-          : `ANULADA: ${motivo}`,
+        observaciones: updatedObs,
       })
       .eq('id_factura', id_factura);
 

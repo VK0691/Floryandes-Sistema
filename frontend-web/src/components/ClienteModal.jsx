@@ -44,10 +44,13 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente = null }
 
   const validate = () => {
     const errs = {};
-    if (!formData.nombre.trim()) {
+    const nombreClean = formData.nombre?.trim() || '';
+    if (!nombreClean) {
       errs.nombre = 'El nombre o razón social es obligatorio.';
-    } else if (formData.nombre.trim().length < 3) {
+    } else if (nombreClean.length < 3) {
       errs.nombre = 'El nombre debe tener al menos 3 caracteres.';
+    } else if (nombreClean.length > 100) {
+      errs.nombre = 'El nombre no puede exceder los 100 caracteres.';
     }
 
     if (formData.ruc?.trim()) {
@@ -55,21 +58,37 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente = null }
       if (!/^\d+$/.test(cleanRuc)) {
         errs.ruc = 'El RUC o Cédula debe contener solo números.';
       } else if (cleanRuc.length !== 10 && cleanRuc.length !== 13) {
-        errs.ruc = 'Debe tener 10 dígitos (Cédula) o 13 dígitos (RUC).';
-      }
-    }
-
-    if (formData.correo?.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.correo.trim())) {
-        errs.correo = 'El correo electrónico no tiene un formato válido.';
+        errs.ruc = 'Debe tener exactamente 10 dígitos (Cédula) o 13 dígitos (RUC).';
       }
     }
 
     if (formData.telefono?.trim()) {
-      const cleanTel = formData.telefono.trim().replace(/[\s-]/g, '');
-      if (!/^\+?\d{7,15}$/.test(cleanTel)) {
-        errs.telefono = 'El teléfono debe contener entre 7 y 15 dígitos numéricos.';
+      const cleanTel = formData.telefono.trim();
+      if (!/^\+?\d{7,13}$/.test(cleanTel)) {
+        errs.telefono = 'El teléfono debe contener entre 7 y 13 dígitos numéricos.';
+      }
+    }
+
+    if (formData.correo?.trim()) {
+      const cleanCorreo = formData.correo.trim();
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (cleanCorreo.length > 100) {
+        errs.correo = 'El correo electrónico no puede superar los 100 caracteres.';
+      } else if (!emailRegex.test(cleanCorreo)) {
+        errs.correo = 'Ingrese un correo electrónico válido (ej: cliente@ejemplo.com).';
+      }
+    }
+
+    if (formData.direccion?.trim() && formData.direccion.trim().length > 200) {
+      errs.direccion = 'La dirección no puede exceder los 200 caracteres.';
+    }
+
+    if (formData.saldo_actual !== undefined && formData.saldo_actual !== '' && formData.saldo_actual !== null) {
+      const saldo = parseFloat(formData.saldo_actual);
+      if (isNaN(saldo) || saldo < 0) {
+        errs.saldo_actual = 'El saldo inicial no puede ser negativo.';
+      } else if (saldo > 999999.99) {
+        errs.saldo_actual = 'El saldo inicial no puede superar $999,999.99.';
       }
     }
 
@@ -83,7 +102,16 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente = null }
 
     setSubmitting(true);
     try {
-      await onSave(formData, cliente?.id_cliente);
+      const payload = {
+        ...formData,
+        nombre: formData.nombre.trim(),
+        ruc: formData.ruc ? formData.ruc.trim() : null,
+        telefono: formData.telefono ? formData.telefono.trim() : null,
+        direccion: formData.direccion ? formData.direccion.trim() : null,
+        correo: formData.correo ? formData.correo.trim().toLowerCase() : null,
+        saldo_actual: parseFloat(formData.saldo_actual) || 0,
+      };
+      await onSave(payload, cliente?.id_cliente);
       onClose();
     } catch (err) {
       setErrors({ form: err.message || 'Error al guardar los datos del cliente' });
@@ -121,13 +149,19 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente = null }
         {/* Form Body */}
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.field}>
-            <label style={styles.label}>
-              Nombre o Razón Social <span style={styles.required}>*</span>
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={styles.label}>
+                Nombre o Razón Social <span style={styles.required}>*</span>
+              </label>
+              <span style={{ fontSize: '11px', color: formData.nombre.length >= 100 ? '#EF4444' : '#94A3B8' }}>
+                {formData.nombre.length}/100
+              </span>
+            </div>
             <input
               type="text"
               value={formData.nombre}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              maxLength={100}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value.slice(0, 100) })}
               placeholder="Ej: SRA. JENNY o DISTRIBUIDORA FLORES S.A."
               style={{
                 ...styles.input,
@@ -138,46 +172,84 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente = null }
             {errors.nombre && <span style={styles.errorText}>{errors.nombre}</span>}
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="modal-form-row">
             <div style={styles.field}>
-              <label style={styles.label}>RUC / Cédula</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>RUC / Cédula</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  {formData.ruc?.length || 0}/13
+                </span>
+              </div>
               <input
                 type="text"
-                value={formData.ruc}
-                onChange={(e) => setFormData({ ...formData, ruc: e.target.value })}
-                placeholder="10 o 13 dígitos"
+                inputMode="numeric"
                 maxLength={13}
+                value={formData.ruc}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 13);
+                  setFormData({ ...formData, ruc: val });
+                }}
+                placeholder="10 dígitos (Cédula) o 13 (RUC)"
                 style={{
                   ...styles.input,
                   borderColor: errors.ruc ? '#EF4444' : '#CBD5E1',
                 }}
               />
-              {errors.ruc && <span style={styles.errorText}>{errors.ruc}</span>}
+              {errors.ruc ? (
+                <span style={styles.errorText}>{errors.ruc}</span>
+              ) : (
+                <span style={styles.hintText}>Solo números (10 o 13 dígitos)</span>
+              )}
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>Teléfono</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Teléfono</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                  {formData.telefono?.length || 0}/13
+                </span>
+              </div>
               <input
                 type="text"
+                inputMode="tel"
+                maxLength={13}
                 value={formData.telefono}
-                onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
-                placeholder="Ej: 0994616783"
+                onChange={(e) => {
+                  let val = e.target.value.replace(/[^\d+]/g, '');
+                  if (val.startsWith('+')) {
+                    val = '+' + val.slice(1).replace(/\+/g, '').slice(0, 12);
+                  } else {
+                    val = val.replace(/\+/g, '').slice(0, 10);
+                  }
+                  setFormData({ ...formData, telefono: val });
+                }}
+                placeholder="Ej: 0994616783 o +593..."
                 style={{
                   ...styles.input,
                   borderColor: errors.telefono ? '#EF4444' : '#CBD5E1',
                 }}
               />
-              {errors.telefono && <span style={styles.errorText}>{errors.telefono}</span>}
+              {errors.telefono ? (
+                <span style={styles.errorText}>{errors.telefono}</span>
+              ) : (
+                <span style={styles.hintText}>Máximo 10 a 13 dígitos</span>
+              )}
             </div>
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="modal-form-row">
             <div style={styles.field}>
-              <label style={styles.label}>Correo Electrónico</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Correo Electrónico</label>
+                <span style={{ fontSize: '11px', color: formData.correo?.length >= 100 ? '#EF4444' : '#94A3B8' }}>
+                  {formData.correo?.length || 0}/100
+                </span>
+              </div>
               <input
                 type="email"
+                maxLength={100}
                 value={formData.correo}
-                onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, correo: e.target.value.slice(0, 100) })}
                 placeholder="cliente@ejemplo.com"
                 style={{
                   ...styles.input,
@@ -202,31 +274,79 @@ export default function ClienteModal({ isOpen, onClose, onSave, cliente = null }
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Dirección</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={styles.label}>Dirección</label>
+              <span style={{ fontSize: '11px', color: formData.direccion?.length >= 200 ? '#EF4444' : '#94A3B8' }}>
+                {formData.direccion?.length || 0}/200
+              </span>
+            </div>
             <input
               type="text"
+              maxLength={200}
               value={formData.direccion}
-              onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, direccion: e.target.value.slice(0, 200) })}
               placeholder="Ej: Mercado Central, Puesto 14, Ambato"
-              style={styles.input}
+              style={{
+                ...styles.input,
+                borderColor: errors.direccion ? '#EF4444' : '#CBD5E1',
+              }}
             />
+            {errors.direccion && <span style={styles.errorText}>{errors.direccion}</span>}
           </div>
 
           {!cliente && (
             <div style={styles.field}>
-              <label style={styles.label}>Saldo Inicial Deuda ($)</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Saldo Inicial Deuda ($)</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>Máx: $999,999.99</span>
+              </div>
               <input
                 type="number"
                 step="0.01"
                 min="0"
+                max="999999.99"
                 value={formData.saldo_actual}
-                onChange={(e) => setFormData({ ...formData, saldo_actual: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val === '') {
+                    setFormData({ ...formData, saldo_actual: '' });
+                    return;
+                  }
+                  if (val.length > 1 && val.startsWith('0') && val[1] !== '.') {
+                    val = val.replace(/^0+/, '') || '0';
+                  }
+                  const num = parseFloat(val);
+                  if (!isNaN(num)) {
+                    if (num > 999999.99) {
+                      val = '999999.99';
+                    }
+                    setFormData({ ...formData, saldo_actual: val });
+                  }
+                }}
+                onBlur={() => {
+                  if (formData.saldo_actual === '' || isNaN(parseFloat(formData.saldo_actual))) {
+                    setFormData({ ...formData, saldo_actual: 0 });
+                  }
+                }}
+                onFocus={(e) => e.target.select()}
                 placeholder="0.00"
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  borderColor: errors.saldo_actual ? '#EF4444' : '#CBD5E1',
+                }}
               />
-              <span style={styles.hintText}>
-                Opcional. Ingrese solo si el cliente arrastra saldo pendiente de planillas anteriores.
-              </span>
+              {errors.saldo_actual ? (
+                <span style={styles.errorText}>{errors.saldo_actual}</span>
+              ) : (
+                <span style={styles.hintText}>
+                  Opcional. Ingrese solo si el cliente arrastra saldo pendiente de planillas anteriores (máx $999,999.99).
+                </span>
+              )}
             </div>
           )}
 

@@ -64,20 +64,43 @@ export default function ImportarProductosModal({ isOpen, onClose, onImportComple
 
         // Validaciones
         const price = parseFloat(rowObj.precio_base);
-        const isValid = rowObj.codigo && rowObj.nombre && !isNaN(price) && price > 0;
+        const rawCod = (rowObj.codigo || '').trim();
+        const rawNom = (rowObj.nombre || '').trim();
+        const stockAct = parseInt(rowObj.stock_actual, 10);
+        const stockMin = parseInt(rowObj.stock_minimo, 10);
 
-        if (!isValid) {
-          validationIssues.push(`Fila ${i + 1}: código o nombre ausente, o precio base inválido.`);
+        let rowError = null;
+        if (!rawCod) {
+          rowError = `Fila ${i + 1}: código de producto ausente.`;
+        } else if (rawCod.length > 20) {
+          rowError = `Fila ${i + 1}: el código "${rawCod}" supera los 20 caracteres permitidos.`;
+        } else if (!rawNom) {
+          rowError = `Fila ${i + 1}: nombre de producto ausente.`;
+        } else if (rawNom.length > 100) {
+          rowError = `Fila ${i + 1}: el nombre supera los 100 caracteres permitidos.`;
+        } else if (isNaN(price) || price <= 0) {
+          rowError = `Fila ${i + 1}: precio base inválido o menor/igual a 0.`;
+        } else if (price > 999999.99) {
+          rowError = `Fila ${i + 1}: el precio base supera el máximo permitido ($999,999.99).`;
+        } else if (!isNaN(stockAct) && (stockAct < 0 || stockAct > 999999)) {
+          rowError = `Fila ${i + 1}: el stock actual debe estar entre 0 y 999,999.`;
+        } else if (!isNaN(stockMin) && (stockMin < 0 || stockMin > 999999)) {
+          rowError = `Fila ${i + 1}: el stock mínimo debe estar entre 0 y 999,999.`;
+        }
+
+        const isValid = !rowError;
+        if (rowError) {
+          validationIssues.push(rowError);
         }
 
         rows.push({
-          codigo: rowObj.codigo || '',
-          nombre: rowObj.nombre || '',
-          categoria: rowObj.categoria || 'Bonches',
+          codigo: rawCod.toUpperCase().slice(0, 20),
+          nombre: rawNom.slice(0, 100),
+          categoria: (rowObj.categoria || 'Bonches').slice(0, 50),
           unidad_medida: rowObj.unidad_medida || 'BONCHE',
-          precio_base: rowObj.precio_base || '0',
-          stock_actual: rowObj.stock_actual || '0',
-          stock_minimo: rowObj.stock_minimo || '10',
+          precio_base: isNaN(price) ? '0' : String(price),
+          stock_actual: isNaN(stockAct) ? '0' : String(Math.min(999999, Math.max(0, stockAct))),
+          stock_minimo: isNaN(stockMin) ? '10' : String(Math.min(999999, Math.max(0, stockMin))),
           isValid,
         });
       }

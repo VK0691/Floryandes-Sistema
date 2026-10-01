@@ -30,6 +30,16 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
   const [productos, setProductos] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
 
+  // Helper to remove awkward leading zeros (e.g. '055' -> '55') and allow clean backspace to empty
+  const sanitizeNumberInput = (value) => {
+    if (value === '' || value === null || value === undefined) return '';
+    let str = String(value);
+    if (str.length > 1 && str.startsWith('0') && str[1] !== '.') {
+      str = str.replace(/^0+/, '') || '0';
+    }
+    return str;
+  };
+
   // Line items
   const [items, setItems] = useState([
     {
@@ -38,7 +48,7 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
       nombre: '',
       codigo: '',
       cantidad: 1,
-      precio_unitario: 0,
+      precio_unitario: '',
       costo_unitario: 0,
       es_inventariable: true,
       subtotal: 0,
@@ -46,7 +56,7 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
   ]);
 
   // Financial arithmetic
-  const [abono, setAbono] = useState('0');
+  const [abono, setAbono] = useState('');
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
 
   // UI status
@@ -126,7 +136,7 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
         nombre: defaultProd.nombre,
         codigo: defaultProd.codigo,
         cantidad: 1,
-        precio_unitario: Number(defaultProd.precio_base) || 0,
+        precio_unitario: defaultProd.precio_base !== undefined ? String(defaultProd.precio_base) : '0',
         costo_unitario: Number(defaultProd.costo_promedio) || 0,
         es_inventariable: defaultProd.es_inventariable,
         subtotal: Number(defaultProd.precio_base) || 0,
@@ -153,10 +163,12 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
     item.id_producto = prod.id_producto;
     item.nombre = prod.nombre;
     item.codigo = prod.codigo;
-    item.precio_unitario = Number(prod.precio_base) || 0;
+    item.precio_unitario = prod.precio_base !== undefined ? String(prod.precio_base) : '0';
     item.costo_unitario = Number(prod.costo_promedio) || 0;
     item.es_inventariable = prod.es_inventariable;
-    item.subtotal = item.cantidad * item.precio_unitario;
+    const q = parseFloat(item.cantidad) || 0;
+    const p = parseFloat(item.precio_unitario) || 0;
+    item.subtotal = q * p;
 
     setItems(newItems);
   };
@@ -166,14 +178,20 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
     const newItems = [...items];
     const item = newItems[index];
 
+    const cleanVal = sanitizeNumberInput(value);
+
     if (field === 'cantidad') {
-      const q = parseFloat(value) || 0;
-      item.cantidad = q;
-      item.subtotal = q * item.precio_unitario;
+      // Quantities must be whole integers only
+      const integerClean = cleanVal === '' ? '' : cleanVal.replace(/[^0-9]/g, '');
+      item.cantidad = integerClean;
+      const q = parseInt(integerClean, 10) || 0;
+      const p = parseFloat(item.precio_unitario) || 0;
+      item.subtotal = q * p;
     } else if (field === 'precio_unitario') {
-      const p = parseFloat(value) || 0;
-      item.precio_unitario = p;
-      item.subtotal = item.cantidad * p;
+      item.precio_unitario = cleanVal;
+      const q = parseInt(item.cantidad, 10) || 0;
+      const p = parseFloat(cleanVal) || 0;
+      item.subtotal = q * p;
     }
 
     setItems(newItems);
@@ -188,7 +206,7 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
   const saldoPendiente = Math.max(0, totalAPagar - abonoNum);
 
   const utilidadEstimada = items.reduce(
-    (acc, it) => acc + (it.cantidad * (it.precio_unitario - it.costo_unitario)),
+    (acc, it) => acc + ((parseInt(it.cantidad, 10) || 0) * ((parseFloat(it.precio_unitario) || 0) - (Number(it.costo_unitario) || 0))),
     0
   );
 
@@ -201,11 +219,15 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
     if (items.length === 0) {
       errs.items = 'Debe incluir al menos un producto.';
     }
-    const hasInvalidQty = items.some(it => !it.cantidad || it.cantidad <= 0);
+    const hasInvalidQty = items.some(it => {
+      if (!it.cantidad) return true;
+      const q = Number(it.cantidad);
+      return isNaN(q) || !Number.isInteger(q) || q <= 0;
+    });
     if (hasInvalidQty) {
-      errs.items = 'Todas las cantidades deben ser mayores a cero.';
+      errs.items = 'Las cantidades deben ser números enteros mayores a cero.';
     }
-    const hasInvalidPrice = items.some(it => it.precio_unitario < 0);
+    const hasInvalidPrice = items.some(it => it.precio_unitario === '' || parseFloat(it.precio_unitario) < 0);
     if (hasInvalidPrice) {
       errs.items = 'Los precios unitarios no pueden ser negativos.';
     }
@@ -240,7 +262,12 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
         saldo_pendiente: saldoPendiente,
         estado: saldoPendiente <= 0 ? 'PAGADA' : 'PENDIENTE',
         observaciones: observaciones,
-        detalles: items,
+        detalles: items.map(it => ({
+          ...it,
+          cantidad: parseInt(it.cantidad, 10) || 0,
+          precio_unitario: parseFloat(it.precio_unitario) || 0,
+          subtotal: (parseInt(it.cantidad, 10) || 0) * (parseFloat(it.precio_unitario) || 0),
+        })),
         metodo_pago: metodoPago,
       });
 
@@ -313,7 +340,7 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
       )}
 
       <form onSubmit={handleGuardarFactura}>
-        <div style={styles.mainGrid}>
+        <div style={styles.mainGrid} className="responsive-two-col">
           {/* Left Column: Form & Table */}
           <div style={styles.leftCard}>
             {/* Client Selection Row */}
@@ -373,7 +400,7 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
                 </button>
               </div>
 
-              <div style={styles.tableWrapper}>
+              <div style={styles.tableWrapper} className="table-responsive">
                 <table style={styles.table}>
                   <thead>
                     <tr style={styles.trHead}>
@@ -392,9 +419,21 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
                           <input
                             type="number"
                             step="1"
-                            min="0.01"
+                            min="1"
+                            max="99999"
                             value={row.cantidad}
-                            onChange={(e) => handleItemChange(idx, 'cantidad', e.target.value)}
+                            placeholder="1"
+                            onKeyDown={(e) => {
+                              if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '-' || e.key === '+') {
+                                e.preventDefault();
+                              }
+                            }}
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (parseInt(val, 10) > 99999) val = '99999';
+                              handleItemChange(idx, 'cantidad', val);
+                            }}
+                            onFocus={(e) => e.target.select()}
                             style={styles.qtyInput}
                           />
                         </td>
@@ -416,8 +455,15 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
                             type="number"
                             step="0.01"
                             min="0"
+                            max="999999.99"
                             value={row.precio_unitario}
-                            onChange={(e) => handleItemChange(idx, 'precio_unitario', e.target.value)}
+                            placeholder="0.00"
+                            onChange={(e) => {
+                              let val = e.target.value;
+                              if (parseFloat(val) > 999999.99) val = '999999.99';
+                              handleItemChange(idx, 'precio_unitario', val);
+                            }}
+                            onFocus={(e) => e.target.select()}
                             style={styles.priceInput}
                           />
                         </td>
@@ -456,12 +502,16 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
 
             {/* Observations */}
             <div style={styles.obsField}>
-              <label style={styles.fieldLabel}>Observaciones (opcional)</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.fieldLabel}>Observaciones (opcional)</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{observaciones.length}/300</span>
+              </div>
               <input
                 type="text"
+                maxLength={300}
                 placeholder="Ej: Entrega en finca, bonches para boda, pago diferido"
                 value={observaciones}
-                onChange={(e) => setObservaciones(e.target.value)}
+                onChange={(e) => setObservaciones(e.target.value.slice(0, 300))}
                 style={styles.obsInput}
               />
             </div>
@@ -512,7 +562,9 @@ export default function NuevaFactura({ preselectedClient = null, onFacturaCreada
                   min="0"
                   max={totalAPagar}
                   value={abono}
-                  onChange={(e) => setAbono(e.target.value)}
+                  placeholder="0.00"
+                  onChange={(e) => setAbono(sanitizeNumberInput(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   style={{
                     ...styles.abonoInput,
                     borderColor: validationErrors.abono ? '#EF4444' : '#CBD5E1',

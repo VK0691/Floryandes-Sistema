@@ -195,9 +195,10 @@ export default function Clientes({ onFacturarCliente }) {
           <Search size={18} color="#94A3B8" />
           <input
             type="text"
+            maxLength={100}
             placeholder="Buscar por nombre, RUC o teléfono..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.slice(0, 100))}
             style={styles.searchInput}
           />
           {searchTerm && (
@@ -252,10 +253,13 @@ export default function Clientes({ onFacturarCliente }) {
       </div>
 
       {/* Main Content Layout: Table on Left + Detail Panel on Right (Mockup p. 24) */}
-      <div style={{
-        ...styles.mainGrid,
-        gridTemplateColumns: selectedClienteId ? '1fr 380px' : '1fr',
-      }}>
+      <div
+        className="responsive-grid-drawer"
+        style={{
+          ...styles.mainGrid,
+          gridTemplateColumns: selectedClienteId ? '1fr 380px' : '1fr',
+        }}
+      >
         {/* Table Container */}
         <div style={styles.tableCard}>
           {loading ? (
@@ -275,7 +279,7 @@ export default function Clientes({ onFacturarCliente }) {
             </div>
           ) : (
             <>
-              <div style={styles.tableWrapper}>
+              <div style={styles.tableWrapper} className="table-responsive">
                 <table style={styles.table}>
                   <thead>
                     <tr style={styles.trHead}>

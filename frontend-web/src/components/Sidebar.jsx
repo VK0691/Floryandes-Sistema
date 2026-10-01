@@ -10,10 +10,10 @@ import {
   BarChart3,
   Settings,
   Lock,
-  Database
+  X
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
+export default function Sidebar({ activeTab, setActiveTab, isOpen, onClose }) {
   const { currentRole, canAccessModule } = useAuth();
 
   const navItems = [
@@ -28,36 +28,62 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   ];
 
   return (
-    <aside style={styles.sidebar}>
-      {/* Brand Header */}
-      <div style={styles.brandContainer}>
-        <div style={styles.logoIcon}>
-          <Flower2 size={24} color="#FFFFFF" strokeWidth={2.5} />
-        </div>
-        <div style={styles.brandInfo}>
-          <span style={styles.brandTitle}>Floryandes</span>
-          <span style={styles.brandSubtitle}>System v3.1</span>
-        </div>
-      </div>
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={onClose}
+          title="Cerrar menú"
+        />
+      )}
 
-      {/* Navigation List */}
-      <nav style={styles.nav}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isAllowed = canAccessModule(item.id);
-          const isActive = activeTab === item.id;
+      <aside className={`app-sidebar ${isOpen ? 'sidebar-open' : ''}`} style={styles.sidebar}>
+        {/* Brand Header */}
+        <div style={styles.brandContainer}>
+          <div style={styles.brandLeft}>
+            <div style={styles.logoIcon}>
+              <Flower2 size={24} color="#FFFFFF" strokeWidth={2.5} />
+            </div>
+            <div style={styles.brandInfo}>
+              <span style={styles.brandTitle}>Floryandes</span>
+              <span style={styles.brandSubtitle}>System v3.1</span>
+            </div>
+          </div>
 
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-              }}
-              style={{
-                ...styles.navItem,
-                ...(isActive ? styles.navItemActive : {}),
-                ...(isAllowed ? {} : styles.navItemDisabled),
-              }}
+          {/* Close button for mobile */}
+          <button
+            onClick={onClose}
+            className="show-on-tablet"
+            style={styles.mobileCloseBtn}
+            title="Cerrar navegación"
+            type="button"
+          >
+            <X size={20} color="#CBD5E1" />
+          </button>
+        </div>
+
+        {/* Navigation List */}
+        <nav style={styles.nav}>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isAllowed = canAccessModule(item.id);
+            const isActive = activeTab === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (isAllowed) {
+                    setActiveTab(item.id);
+                    if (onClose) onClose();
+                  }
+                }}
+                style={{
+                  ...styles.navItem,
+                  ...(isActive ? styles.navItemActive : {}),
+                  ...(isAllowed ? {} : styles.navItemDisabled),
+                }}
               title={
                 !isAllowed
                   ? `Módulo no disponible para el rol ${currentRole}`
@@ -81,18 +107,8 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           );
         })}
       </nav>
-
-      {/* Database & Cloud Footprint */}
-      <div style={styles.footer}>
-        <div style={styles.dbInfoBox}>
-          <div style={styles.dbHeader}>
-            <Database size={13} color="#10B981" />
-            <span style={styles.dbTitle}>PostgreSQL / Supabase</span>
-          </div>
-          <span style={styles.dbStatus}>Online • Realtime Sincronizado</span>
-        </div>
-      </div>
     </aside>
+    </>
   );
 }
 
@@ -115,9 +131,23 @@ const styles = {
     height: '70px',
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    padding: '0 24px',
+    justifyContent: 'space-between',
+    padding: '0 20px',
     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+  },
+  brandLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  mobileCloseBtn: {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '6px',
+    borderRadius: '6px',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoIcon: {
     width: '38px',

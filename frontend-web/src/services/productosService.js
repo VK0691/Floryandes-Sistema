@@ -90,7 +90,7 @@ export async function getCategorias(onlyActive = true) {
 export async function createCategoria(catData, usuarioId = 1) {
   try {
     const payload = {
-      nombre: catData.nombre.trim(),
+      nombre: catData.nombre.trim().slice(0, 50),
       tipo: catData.tipo || 'PRODUCTO_VENTA',
       activo: true,
     };
@@ -128,7 +128,7 @@ export async function updateCategoria(id, catData, usuarioId = 1) {
     const { data, error } = await supabase
       .from('categoria')
       .update({
-        nombre: catData.nombre.trim(),
+        nombre: catData.nombre.trim().slice(0, 50),
         tipo: catData.tipo,
       })
       .eq('id_categoria', id)
@@ -202,14 +202,14 @@ export async function createProducto(prodData, usuarioId = 1) {
     }
 
     const payload = {
-      codigo: prodData.codigo.trim().toUpperCase(),
-      nombre: prodData.nombre.trim(),
+      codigo: prodData.codigo.trim().toUpperCase().slice(0, 20),
+      nombre: prodData.nombre.trim().slice(0, 100),
       id_categoria: parseInt(prodData.id_categoria, 10),
       unidad_medida: prodData.unidad_medida || 'BONCHE',
-      precio_base: parseFloat(prodData.precio_base) || 0,
-      costo_promedio: parseFloat(prodData.costo_promedio) || 0,
-      stock_actual: parseFloat(prodData.stock_actual) || 0,
-      stock_minimo: parseFloat(prodData.stock_minimo) || 0,
+      precio_base: Math.min(999999.99, Math.max(0, parseFloat(prodData.precio_base) || 0)),
+      costo_promedio: Math.min(999999.99, Math.max(0, parseFloat(prodData.costo_promedio) || 0)),
+      stock_actual: Math.min(999999, Math.max(0, parseInt(prodData.stock_actual, 10) || 0)),
+      stock_minimo: Math.min(999999, Math.max(0, parseInt(prodData.stock_minimo, 10) || 0)),
       es_inventariable: prodData.es_inventariable !== undefined ? prodData.es_inventariable : true,
       activo: true,
     };
@@ -245,7 +245,7 @@ export async function createProducto(prodData, usuarioId = 1) {
 export async function updateProducto(id, prodData, usuarioId = 1) {
   try {
     // Validar unicidad del código si cambió
-    const codigoUpper = prodData.codigo.trim().toUpperCase();
+    const codigoUpper = prodData.codigo.trim().toUpperCase().slice(0, 20);
     const { data: existing } = await supabase
       .from('producto')
       .select('id_producto')
@@ -259,13 +259,13 @@ export async function updateProducto(id, prodData, usuarioId = 1) {
 
     const payload = {
       codigo: codigoUpper,
-      nombre: prodData.nombre.trim(),
+      nombre: prodData.nombre.trim().slice(0, 100),
       id_categoria: parseInt(prodData.id_categoria, 10),
       unidad_medida: prodData.unidad_medida || 'BONCHE',
-      precio_base: parseFloat(prodData.precio_base) || 0,
-      costo_promedio: parseFloat(prodData.costo_promedio) || 0,
-      stock_actual: parseFloat(prodData.stock_actual) || 0,
-      stock_minimo: parseFloat(prodData.stock_minimo) || 0,
+      precio_base: Math.min(999999.99, Math.max(0, parseFloat(prodData.precio_base) || 0)),
+      costo_promedio: Math.min(999999.99, Math.max(0, parseFloat(prodData.costo_promedio) || 0)),
+      stock_actual: Math.min(999999, Math.max(0, parseInt(prodData.stock_actual, 10) || 0)),
+      stock_minimo: Math.min(999999, Math.max(0, parseInt(prodData.stock_minimo, 10) || 0)),
       es_inventariable: prodData.es_inventariable !== undefined ? prodData.es_inventariable : true,
     };
 

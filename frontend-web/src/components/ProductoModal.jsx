@@ -61,26 +61,50 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
     setErrors({});
   }, [producto, isOpen]);
 
+  const cleanNumberInput = (val) => {
+    if (val === '' || val === null || val === undefined) return '';
+    let str = String(val);
+    if (str.length > 1 && str.startsWith('0') && str[1] !== '.') {
+      str = str.replace(/^0+/, '') || '0';
+    }
+    return str;
+  };
+
   if (!isOpen) return null;
 
   const validate = () => {
     const errs = {};
-    if (!formData.codigo.trim()) {
+    const cod = formData.codigo.trim();
+    if (!cod) {
       errs.codigo = 'El código del producto es obligatorio.';
+    } else if (cod.length > 20) {
+      errs.codigo = 'El código no puede tener más de 20 caracteres.';
     }
 
-    if (!formData.nombre.trim()) {
+    const nom = formData.nombre.trim();
+    if (!nom) {
       errs.nombre = 'El nombre del producto es obligatorio.';
+    } else if (nom.length > 100) {
+      errs.nombre = 'El nombre no puede exceder los 100 caracteres.';
     }
 
     const price = parseFloat(formData.precio_base);
     if (isNaN(price) || price <= 0) {
       errs.precio_base = 'El precio base debe ser un valor numérico mayor a 0.';
+    } else if (price > 999999.99) {
+      errs.precio_base = 'El precio base no puede exceder $999,999.99.';
+    }
+
+    const currentStock = parseFloat(formData.stock_actual);
+    if (!isNaN(currentStock) && currentStock > 999999) {
+      errs.stock_actual = 'El stock actual no puede exceder 999,999 unidades.';
     }
 
     const minStock = parseFloat(formData.stock_minimo);
     if (isNaN(minStock) || minStock < 0) {
       errs.stock_minimo = 'El stock mínimo no puede ser negativo.';
+    } else if (minStock > 999999) {
+      errs.stock_minimo = 'El stock mínimo no puede exceder 999,999 unidades.';
     }
 
     setErrors(errs);
@@ -93,7 +117,16 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
 
     setSubmitting(true);
     try {
-      await onSave(formData, producto?.id_producto);
+      const payload = {
+        ...formData,
+        codigo: formData.codigo.trim().toUpperCase(),
+        nombre: formData.nombre.trim(),
+        precio_base: parseFloat(formData.precio_base) || 0,
+        costo_promedio: parseFloat(formData.costo_promedio) || 0,
+        stock_actual: parseInt(formData.stock_actual, 10) || 0,
+        stock_minimo: parseInt(formData.stock_minimo, 10) || 0,
+      };
+      await onSave(payload, producto?.id_producto);
       onClose();
     } catch (err) {
       setErrors({ form: err.message || 'Error al guardar el producto' });
@@ -129,13 +162,17 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.row}>
             <div style={styles.field}>
-              <label style={styles.label}>
-                Código del Producto <span style={styles.required}>*</span>
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>
+                  Código del Producto <span style={styles.required}>*</span>
+                </label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{formData.codigo?.length || 0}/20</span>
+              </div>
               <input
                 type="text"
+                maxLength={20}
                 value={formData.codigo}
-                onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+                onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase().slice(0, 20) })}
                 placeholder="Ej: BON-ROJ, AST, GUI"
                 style={{
                   ...styles.input,
@@ -165,13 +202,17 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>
-              Nombre del Producto / Servicio <span style={styles.required}>*</span>
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={styles.label}>
+                Nombre del Producto / Servicio <span style={styles.required}>*</span>
+              </label>
+              <span style={{ fontSize: '11px', color: '#94A3B8' }}>{formData.nombre?.length || 0}/100</span>
+            </div>
             <input
               type="text"
+              maxLength={100}
               value={formData.nombre}
-              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value.slice(0, 100) })}
               placeholder="Ej: Bonche de Rosas Rojas, Aster, Cajas de empaque"
               style={{
                 ...styles.input,
@@ -181,7 +222,7 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
             {errors.nombre && <span style={styles.errorText}>{errors.nombre}</span>}
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="modal-form-row">
             <div style={styles.field}>
               <label style={styles.label}>Unidad de Medida</label>
               <select
@@ -196,15 +237,24 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>
-                Precio Base de Venta ($) <span style={styles.required}>*</span>
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>
+                  Precio Base de Venta ($) <span style={styles.required}>*</span>
+                </label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>Máx: $999,999.99</span>
+              </div>
               <input
                 type="number"
                 step="0.01"
                 min="0.01"
+                max="999999.99"
                 value={formData.precio_base}
-                onChange={(e) => setFormData({ ...formData, precio_base: e.target.value })}
+                onChange={(e) => {
+                  let val = cleanNumberInput(e.target.value);
+                  if (parseFloat(val) > 999999.99) val = '999999.99';
+                  setFormData({ ...formData, precio_base: val });
+                }}
+                onFocus={(e) => e.target.select()}
                 placeholder="0.00"
                 style={{
                   ...styles.input,
@@ -215,28 +265,57 @@ export default function ProductoModal({ isOpen, onClose, onSave, producto = null
             </div>
           </div>
 
-          <div style={styles.row}>
+          <div style={styles.row} className="modal-form-row">
             <div style={styles.field}>
-              <label style={styles.label}>Stock Actual</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Stock Actual</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>Máx: 999,999</span>
+              </div>
               <input
                 type="number"
                 step="1"
                 min="0"
+                max="999999"
                 value={formData.stock_actual}
-                onChange={(e) => setFormData({ ...formData, stock_actual: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '-' || e.key === '+') {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={(e) => {
+                  let val = cleanNumberInput(e.target.value);
+                  if (parseInt(val, 10) > 999999) val = '999999';
+                  setFormData({ ...formData, stock_actual: val });
+                }}
+                onFocus={(e) => e.target.select()}
                 placeholder="0"
                 style={styles.input}
               />
+              {errors.stock_actual && <span style={styles.errorText}>{errors.stock_actual}</span>}
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>Stock Mínimo (Alerta)</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Stock Mínimo (Alerta)</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>Máx: 999,999</span>
+              </div>
               <input
                 type="number"
                 step="1"
                 min="0"
+                max="999999"
                 value={formData.stock_minimo}
-                onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === '.' || e.key === ',' || e.key === 'e' || e.key === 'E' || e.key === '-' || e.key === '+') {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={(e) => {
+                  let val = cleanNumberInput(e.target.value);
+                  if (parseInt(val, 10) > 999999) val = '999999';
+                  setFormData({ ...formData, stock_minimo: val });
+                }}
+                onFocus={(e) => e.target.select()}
                 placeholder="10"
                 style={{
                   ...styles.input,

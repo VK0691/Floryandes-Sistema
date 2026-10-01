@@ -96,9 +96,10 @@ export default function FacturasList({ onNuevaFactura }) {
           <Search size={18} color="#94A3B8" />
           <input
             type="text"
+            maxLength={100}
             placeholder="Buscar por # factura o cliente..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.slice(0, 100))}
             style={styles.searchInput}
           />
           {searchTerm && (
@@ -182,7 +183,7 @@ export default function FacturasList({ onNuevaFactura }) {
           </div>
         ) : (
           <>
-            <div style={styles.tableWrapper}>
+            <div style={styles.tableWrapper} className="table-responsive">
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.trHead}>

@@ -67,13 +67,13 @@ export async function getClientes({
 export async function createCliente(clienteData, usuarioId = 1) {
   try {
     const payload = {
-      nombre: clienteData.nombre.trim(),
-      ruc: clienteData.ruc?.trim() || null,
-      telefono: clienteData.telefono?.trim() || null,
-      direccion: clienteData.direccion?.trim() || null,
-      correo: clienteData.correo?.trim() || null,
+      nombre: clienteData.nombre.trim().slice(0, 100),
+      ruc: clienteData.ruc ? clienteData.ruc.trim().slice(0, 20) : null,
+      telefono: clienteData.telefono ? clienteData.telefono.trim().slice(0, 20) : null,
+      direccion: clienteData.direccion ? clienteData.direccion.trim().slice(0, 200) : null,
+      correo: clienteData.correo ? clienteData.correo.trim().toLowerCase().slice(0, 100) : null,
       tipo_cliente: clienteData.tipo_cliente || 'MINORISTA',
-      saldo_actual: parseFloat(clienteData.saldo_actual) || 0.00,
+      saldo_actual: Math.min(999999.99, Math.max(0, parseFloat(clienteData.saldo_actual) || 0.00)),
       activo: true,
     };
 
@@ -111,11 +111,11 @@ export async function createCliente(clienteData, usuarioId = 1) {
 export async function updateCliente(id, clienteData, usuarioId = 1) {
   try {
     const payload = {
-      nombre: clienteData.nombre.trim(),
-      ruc: clienteData.ruc?.trim() || null,
-      telefono: clienteData.telefono?.trim() || null,
-      direccion: clienteData.direccion?.trim() || null,
-      correo: clienteData.correo?.trim() || null,
+      nombre: clienteData.nombre.trim().slice(0, 100),
+      ruc: clienteData.ruc ? clienteData.ruc.trim().slice(0, 20) : null,
+      telefono: clienteData.telefono ? clienteData.telefono.trim().slice(0, 20) : null,
+      direccion: clienteData.direccion ? clienteData.direccion.trim().slice(0, 200) : null,
+      correo: clienteData.correo ? clienteData.correo.trim().toLowerCase().slice(0, 100) : null,
       tipo_cliente: clienteData.tipo_cliente || 'MINORISTA',
     };
 
@@ -243,6 +243,11 @@ export async function registrarAbono({
     if (!abonoMonto || abonoMonto <= 0) {
       return { success: false, error: 'El monto del abono debe ser mayor a cero' };
     }
+    if (abonoMonto > 999999.99) {
+      return { success: false, error: 'El monto del abono no puede superar $999,999.99' };
+    }
+
+    const cleanRef = (referencia?.trim() || 'Abono a cuenta').slice(0, 150);
 
     // 1. Insertar registro de pago
     const { data: pago, error: pErr } = await supabase
@@ -252,7 +257,7 @@ export async function registrarAbono({
         fecha_pago: new Date().toISOString().split('T')[0],
         monto: abonoMonto,
         metodo_pago,
-        referencia: referencia.trim() || 'Abono a cuenta',
+        referencia: cleanRef,
         id_usuario,
       }])
       .select()

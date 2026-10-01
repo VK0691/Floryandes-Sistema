@@ -60,6 +60,10 @@ export default function ClienteDetallePanel({
       setAbonoError('Ingrese un monto válido.');
       return;
     }
+    if (monto > 999999.99) {
+      setAbonoError('El monto del abono no puede superar $999,999.99.');
+      return;
+    }
 
     setAbonoSubmitting(true);
     try {
@@ -125,7 +129,7 @@ export default function ClienteDetallePanel({
           <span>Obteniendo historial del cliente...</span>
         </div>
       ) : data?.cliente ? (
-        <div style={styles.body}>
+        <div style={styles.body} className="modal-scroll">
           {/* Balance Highlight Card (Mockup p. 24) */}
           <div style={styles.balanceCard}>
             <div style={styles.balanceTop}>
@@ -194,9 +198,18 @@ export default function ClienteDetallePanel({
                     type="number"
                     step="0.01"
                     min="0.01"
+                    max="999999.99"
                     placeholder="0.00"
                     value={abonoMonto}
-                    onChange={(e) => setAbonoMonto(e.target.value)}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.length > 1 && val.startsWith('0') && val[1] !== '.') {
+                        val = val.replace(/^0+/, '') || '0';
+                      }
+                      if (parseFloat(val) > 999999.99) val = '999999.99';
+                      setAbonoMonto(val);
+                    }}
+                    onFocus={(e) => e.target.select()}
                     style={styles.abonoInput}
                     autoFocus
                   />
@@ -215,12 +228,16 @@ export default function ClienteDetallePanel({
                 </div>
               </div>
               <div style={styles.abonoField}>
-                <label style={styles.abonoLabel}>Referencia / Nota</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={styles.abonoLabel}>Referencia / Nota</label>
+                  <span style={{ fontSize: '10px', color: '#94A3B8' }}>{abonoRef?.length || 0}/150</span>
+                </div>
                 <input
                   type="text"
+                  maxLength={150}
                   placeholder="Ej: Depósito comprobante #8492"
                   value={abonoRef}
-                  onChange={(e) => setAbonoRef(e.target.value)}
+                  onChange={(e) => setAbonoRef(e.target.value.slice(0, 150))}
                   style={styles.abonoInput}
                 />
               </div>

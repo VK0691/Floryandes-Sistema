@@ -71,7 +71,7 @@ export default function ProductoDetallePanel({ productoId, onClose }) {
           <span>Consultando información y trazabilidad...</span>
         </div>
       ) : prod ? (
-        <div style={styles.body}>
+        <div style={styles.body} className="modal-scroll">
           {/* Key Metrics Grid */}
           <div style={styles.metricsGrid}>
             <div style={styles.metricCard}>

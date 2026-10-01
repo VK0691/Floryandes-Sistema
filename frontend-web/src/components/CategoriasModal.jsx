@@ -134,12 +134,16 @@ export default function CategoriasModal({ isOpen, onClose, onCategoriesUpdated }
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.formRow}>
               <div style={styles.fieldFlex}>
-                <label style={styles.label}>Nombre de la Categoría</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={styles.label}>Nombre de la Categoría</label>
+                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>{nombre?.length || 0}/50</span>
+                </div>
                 <input
                   type="text"
+                  maxLength={50}
                   placeholder="Ej: Bonches, Hierbas, Ramos, Insumos"
                   value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
+                  onChange={(e) => setNombre(e.target.value.slice(0, 50))}
                   style={styles.input}
                   autoFocus
                 />

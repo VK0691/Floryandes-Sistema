@@ -1,9 +1,9 @@
 import React from 'react';
-import { useAuth, ROLES } from '../context/AuthContext';
-import { LogOut, Bell, AlertTriangle, Shield, User, ChevronDown } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { LogOut, AlertTriangle, User, Menu } from 'lucide-react';
 
-export default function Header({ onNavigateToLowStock }) {
-  const { currentUser, currentRole, roleInfo, logout, switchRole } = useAuth();
+export default function Header({ onNavigateToLowStock, onToggleSidebar }) {
+  const { currentUser, currentRole, roleInfo, logout } = useAuth();
 
   // Format date in Spanish like mockup: "sábado, 27 de septiembre de 2026"
   const todayFormatted = new Intl.DateTimeFormat('es-EC', {
@@ -15,20 +15,35 @@ export default function Header({ onNavigateToLowStock }) {
 
   return (
     <header style={styles.header}>
-      {/* Left: Salutation & Date */}
-      <div style={styles.leftSection}>
-        <div style={styles.greetingRow}>
-          <h2 style={styles.greetingTitle}>
-            Bienvenido, {currentUser?.nombre || 'Papá'}
-          </h2>
+      {/* Left: Hamburger Menu (Mobile/Tablet) + Salutation */}
+      <div style={styles.leftContainer}>
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="show-on-tablet"
+            style={styles.hamburgerBtn}
+            title="Abrir menú de navegación"
+          >
+            <Menu size={22} color="#1E4E79" />
+          </button>
+        )}
+
+        <div style={styles.leftSection}>
+          <div style={styles.greetingRow}>
+            <h2 style={styles.greetingTitle}>
+              Bienvenido, {currentUser?.nombre || 'Papá'}
+            </h2>
+          </div>
+          <span style={styles.dateText} className="hide-on-mobile">{todayFormatted}</span>
         </div>
-        <span style={styles.dateText}>{todayFormatted}</span>
       </div>
 
-      {/* Center: System Alerts */}
+      {/* Center: System Alerts (hidden on small mobile screens to prevent overflow) */}
       <button
         type="button"
         onClick={onNavigateToLowStock}
+        className="hide-on-mobile"
         style={styles.alertPillBtn}
         title="Ver productos con stock por debajo del mínimo"
       >
@@ -36,31 +51,15 @@ export default function Header({ onNavigateToLowStock }) {
         <span>Aster con stock bajo (5 unidades)</span>
       </button>
 
-      {/* Right: Notifications, Role Switcher, User Profile & Logout */}
+      {/* Right: User Profile & Logout */}
       <div style={styles.rightSection}>
-        {/* Role Switcher */}
-        <div style={styles.roleSwitcherBox}>
-          <Shield size={14} color="#64748B" />
-          <span style={styles.roleSwitcherLabel}>Rol:</span>
-          <select
-            value={currentRole || ROLES.ADMIN}
-            onChange={(e) => switchRole(e.target.value)}
-            style={styles.roleSelect}
-            title="Cambiar rol activo"
-          >
-            <option value={ROLES.ADMIN}>ADMIN (Acceso Total)</option>
-            <option value={ROLES.VENDEDOR}>VENDEDOR (Facturación)</option>
-            <option value={ROLES.BODEGUERO}>BODEGUERO (Inventario)</option>
-          </select>
-        </div>
-
         {/* User Card */}
         <div style={styles.userCard}>
           <div style={styles.avatar}>
             <User size={18} color="#1E4E79" />
           </div>
           <div style={styles.userInfo}>
-            <span style={styles.userName}>{currentUser?.nombre || 'Wilson'}</span>
+            <span style={styles.userName} className="hide-on-mobile">{currentUser?.nombre || 'Wilson'}</span>
             <span
               style={{
                 ...styles.roleBadge,
@@ -77,10 +76,10 @@ export default function Header({ onNavigateToLowStock }) {
         <button
           onClick={logout}
           style={styles.logoutBtn}
-          title="Cerrar sesión (Historia 1.6)"
+          title="Cerrar sesión"
         >
           <LogOut size={16} />
-          <span style={styles.logoutText}>Salir</span>
+          <span style={styles.logoutText} className="hide-on-mobile">Salir</span>
         </button>
       </div>
     </header>
@@ -89,17 +88,33 @@ export default function Header({ onNavigateToLowStock }) {
 
 const styles = {
   header: {
-    height: '70px',
+    minHeight: '70px',
     backgroundColor: '#FFFFFF',
     borderBottom: '1px solid #E2E8F0',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0 28px',
+    padding: '0 20px',
     position: 'sticky',
     top: 0,
     zIndex: 10,
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+    gap: '12px',
+  },
+  leftContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+  },
+  hamburgerBtn: {
+    background: '#F8FAFC',
+    border: '1px solid #CBD5E1',
+    borderRadius: '8px',
+    padding: '7px 8px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   leftSection: {
     display: 'flex',

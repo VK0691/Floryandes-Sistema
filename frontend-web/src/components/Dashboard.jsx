@@ -122,28 +122,6 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
 
   return (
     <div style={styles.container} className="fade-in">
-      {/* Supabase Connection Live Banner */}
-      <div style={styles.dbBanner}>
-        <div style={styles.dbBannerLeft}>
-          <div style={styles.dbIcon}>
-            <Database size={18} color="#1E4E79" />
-          </div>
-          <div>
-            <div style={styles.dbBannerTitle}>
-              Base de Datos Supabase Conectada en Tiempo Real
-            </div>
-            <div style={styles.dbBannerSubtitle}>
-              Sincronizado con tablas activas: {dbStatus.clientesCount} Clientes • {dbStatus.productosCount} Productos • {dbStatus.proveedoresCount} Proveedores • {dbStatus.usuariosCount} Usuarios
-            </div>
-          </div>
-        </div>
-
-        <button onClick={checkLiveDatabase} style={styles.refreshBtn} title="Volver a consultar Supabase">
-          <RefreshCw size={14} className={dbStatus.loading ? 'pulse' : ''} />
-          <span>{dbStatus.loading ? 'Verificando...' : 'Re-verificar'}</span>
-        </button>
-      </div>
-
       {/* Low Stock Alert Banner */}
       {dbStatus.lowStockCount > 0 && (
         <div

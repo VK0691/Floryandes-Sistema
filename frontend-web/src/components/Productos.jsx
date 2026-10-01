@@ -224,9 +224,10 @@ export default function Productos({ initialStockFilter = 'ALL' }) {
           <Search size={18} color="#94A3B8" />
           <input
             type="text"
+            maxLength={100}
             placeholder="Buscar por código o nombre del producto..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.slice(0, 100))}
             style={styles.searchInput}
           />
           {searchTerm && (
@@ -283,10 +284,13 @@ export default function Productos({ initialStockFilter = 'ALL' }) {
       </div>
 
       {/* Main Grid: Products Table + Right Detail Panel */}
-      <div style={{
-        ...styles.mainGrid,
-        gridTemplateColumns: selectedProductoId ? '1fr 380px' : '1fr',
-      }}>
+      <div
+        className="responsive-grid-drawer"
+        style={{
+          ...styles.mainGrid,
+          gridTemplateColumns: selectedProductoId ? '1fr 380px' : '1fr',
+        }}
+      >
         <div style={styles.tableCard}>
           {loading ? (
             <div style={styles.loadingBox}>
@@ -305,7 +309,7 @@ export default function Productos({ initialStockFilter = 'ALL' }) {
             </div>
           ) : (
             <>
-              <div style={styles.tableWrapper}>
+              <div style={styles.tableWrapper} className="table-responsive">
                 <table style={styles.table}>
                   <thead>
                     <tr style={styles.trHead}>

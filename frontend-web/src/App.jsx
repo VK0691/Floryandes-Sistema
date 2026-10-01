@@ -17,6 +17,7 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedClientForInvoice, setSelectedClientForInvoice] = useState(null);
   const [productStockFilter, setProductStockFilter] = useState('ALL');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (loading) {
     return (
@@ -34,11 +35,13 @@ function MainApp() {
   const handleFacturarCliente = (cliente) => {
     setSelectedClientForInvoice(cliente);
     setActiveTab('facturacion');
+    setMobileMenuOpen(false);
   };
 
   const handleNavigateToLowStock = () => {
     setProductStockFilter('BAJO');
     setActiveTab('productos');
+    setMobileMenuOpen(false);
   };
 
   const handleSelectTab = (tab) => {
@@ -46,6 +49,7 @@ function MainApp() {
       setProductStockFilter('ALL');
     }
     setActiveTab(tab);
+    setMobileMenuOpen(false);
   };
 
   const renderActiveModule = () => {
@@ -92,19 +96,27 @@ function MainApp() {
       case 'configuracion':
         return <ConfiguracionView />;
       default:
-        return <Dashboard onNavigate={(tab) => setActiveTab(tab)} />;
+        return <Dashboard onNavigate={(tab) => handleSelectTab(tab)} />;
     }
   };
 
   return (
-    <div style={styles.layout}>
-      {/* Fixed Sidebar */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="app-layout" style={styles.layout}>
+      {/* Responsive Sidebar with Mobile Drawer support */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={handleSelectTab}
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
 
       {/* Main Content Area */}
-      <div style={styles.mainWrapper}>
-        <Header onNavigateToLowStock={handleNavigateToLowStock} />
-        <main style={styles.contentArea}>
+      <div className="app-main" style={styles.mainWrapper}>
+        <Header
+          onNavigateToLowStock={handleNavigateToLowStock}
+          onToggleSidebar={() => setMobileMenuOpen(prev => !prev)}
+        />
+        <main className="app-content" style={styles.contentArea}>
           {renderActiveModule()}
         </main>
       </div>

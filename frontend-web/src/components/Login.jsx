@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth, ROLES } from '../context/AuthContext';
 import { Lock, Mail, Eye, EyeOff, ShieldCheck, Flower2, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { SUPABASE_URL } from '../lib/supabaseClient';
 
 export default function Login() {
   const { login, loading, authError } = useAuth();
@@ -54,13 +53,6 @@ export default function Login() {
           <p style={styles.subtitle}>Gestión comercial, facturación e inventario</p>
         </div>
 
-        {/* Database connectivity status pill */}
-        <div style={styles.statusPill}>
-          <span style={styles.onlineDot}></span>
-          <span>Supabase Conectado</span>
-          <span style={styles.statusUrl}>({SUPABASE_URL.replace('https://', '').split('.')[0]})</span>
-        </div>
-
         {/* Error message */}
         {(localError || authError) && (
           <div style={styles.errorBox}>
@@ -77,8 +69,9 @@ export default function Login() {
               <Mail size={18} style={styles.inputIcon} />
               <input
                 type="text"
+                maxLength={100}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value.slice(0, 100))}
                 placeholder="ej: admin@floryandes.com"
                 style={styles.input}
                 autoComplete="username"
@@ -101,8 +94,9 @@ export default function Login() {
               <Lock size={18} style={styles.inputIcon} />
               <input
                 type={showPassword ? 'text' : 'password'}
+                maxLength={64}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value.slice(0, 64))}
                 placeholder="••••••••"
                 style={styles.input}
                 autoComplete="current-password"
@@ -194,8 +188,9 @@ export default function Login() {
               <>
                 <input
                   type="email"
+                  maxLength={100}
                   value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
+                  onChange={(e) => setForgotEmail(e.target.value.slice(0, 100))}
                   placeholder="tu-correo@floryandes.com"
                   style={styles.modalInput}
                 />

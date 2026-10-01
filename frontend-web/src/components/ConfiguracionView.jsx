@@ -59,38 +59,56 @@ export default function ConfiguracionView() {
 
           <div style={styles.form}>
             <div style={styles.field}>
-              <label style={styles.label}>Nombre Comercial / Razón Social</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Nombre Comercial / Razón Social</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{companyName?.length || 0}/100</span>
+              </div>
               <input
                 type="text"
+                maxLength={100}
                 value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                onChange={(e) => setCompanyName(e.target.value.slice(0, 100))}
                 style={styles.input}
               />
             </div>
             <div style={styles.field}>
-              <label style={styles.label}>RUC / Identificación Fiscal</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>RUC / Identificación Fiscal</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{ruc?.length || 0}/13</span>
+              </div>
               <input
                 type="text"
+                maxLength={13}
+                inputMode="numeric"
                 value={ruc}
-                onChange={(e) => setRuc(e.target.value)}
+                onChange={(e) => setRuc(e.target.value.replace(/\D/g, '').slice(0, 13))}
                 style={styles.input}
               />
             </div>
             <div style={styles.field}>
-              <label style={styles.label}>Teléfono de Contacto</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Teléfono de Contacto</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{phone?.length || 0}/15</span>
+              </div>
               <input
                 type="text"
+                maxLength={15}
+                inputMode="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, '').slice(0, 15))}
                 style={styles.input}
               />
             </div>
             <div style={styles.field}>
-              <label style={styles.label}>Dirección</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={styles.label}>Dirección</label>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{address?.length || 0}/200</span>
+              </div>
               <input
                 type="text"
+                maxLength={200}
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={(e) => setAddress(e.target.value.slice(0, 200))}
                 style={styles.input}
               />
             </div>

@@ -4,6 +4,7 @@ import {
   Plus,
   Eye,
   Printer,
+  Download,
   Ban,
   Calendar,
   ChevronLeft,
@@ -12,9 +13,10 @@ import {
   Receipt,
   RotateCcw
 } from 'lucide-react';
-import { getFacturas } from '../services/facturasService';
+import { getFacturas, getFacturaDetalle } from '../services/facturasService';
 import { useAuth, ROLES } from '../context/AuthContext';
 import FacturaDetalleModal from './FacturaDetalleModal';
+import { descargarFacturaPDF, imprimirFacturaPDF } from '../utils/facturaPdfGenerator';
 
 export default function FacturasList({ onNuevaFactura }) {
   const { currentRole } = useAuth();
@@ -65,12 +67,24 @@ export default function FacturasList({ onNuevaFactura }) {
     return () => clearTimeout(handler);
   }, [searchTerm, filterEstado, fechaDesde, fechaHasta]);
 
-  const handleQuickPrint = (fId, e) => {
+  const handleQuickPrint = async (fId, e) => {
     if (e) e.stopPropagation();
-    setSelectedFacturaId(fId);
-    setTimeout(() => {
-      window.print();
-    }, 400);
+    try {
+      const fullFactura = await getFacturaDetalle(fId);
+      imprimirFacturaPDF(fullFactura);
+    } catch (err) {
+      console.error('Error printing factura PDF:', err);
+    }
+  };
+
+  const handleQuickPdf = async (fId, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const fullFactura = await getFacturaDetalle(fId);
+      descargarFacturaPDF(fullFactura);
+    } catch (err) {
+      console.error('Error downloading factura PDF:', err);
+    }
   };
 
   return (
@@ -277,15 +291,23 @@ export default function FacturasList({ onNuevaFactura }) {
                             <button
                               onClick={() => setSelectedFacturaId(f.id_factura)}
                               style={styles.actionBtn}
-                              title="Ver detalle de factura"
+                              title="Ver detalle completo de factura"
                             >
                               <Eye size={15} color="#1E4E79" />
                             </button>
 
                             <button
+                              onClick={(e) => handleQuickPdf(f.id_factura, e)}
+                              style={styles.actionBtn}
+                              title="Descargar Factura en PDF"
+                            >
+                              <Download size={15} color="#1E4E79" />
+                            </button>
+
+                            <button
                               onClick={(e) => handleQuickPrint(f.id_factura, e)}
                               style={styles.actionBtn}
-                              title="Imprimir comprobante"
+                              title="Imprimir Factura en PDF"
                             >
                               <Printer size={15} color="#475569" />
                             </button>

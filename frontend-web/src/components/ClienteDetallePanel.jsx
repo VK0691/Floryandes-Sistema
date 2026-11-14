@@ -12,15 +12,21 @@ import {
   AlertCircle,
   PlusCircle,
   TrendingDown,
-  DollarSign
+  DollarSign,
+  Printer,
+  Download,
+  Eye,
+  FileText
 } from 'lucide-react';
 import { getClienteDetalle, registrarAbono } from '../services/clientesService';
+import { descargarReciboPDF, imprimirReciboPDF } from '../utils/reciboPdfGenerator';
 
 export default function ClienteDetallePanel({
   clienteId,
   onClose,
   onFacturar,
   onClienteUpdated,
+  onVerFactura,
 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +38,7 @@ export default function ClienteDetallePanel({
   const [abonoSubmitting, setAbonoSubmitting] = useState(false);
   const [abonoSuccess, setAbonoSuccess] = useState('');
   const [abonoError, setAbonoError] = useState('');
+  const [ultimoPago, setUltimoPago] = useState(null);
 
   const loadDetails = async () => {
     if (!clienteId) return;
@@ -48,12 +55,42 @@ export default function ClienteDetallePanel({
 
   useEffect(() => {
     loadDetails();
+    setUltimoPago(null);
   }, [clienteId]);
+
+  const handlePrintReceipt = (pagoObj) => {
+    imprimirReciboPDF({
+      id_pago: pagoObj.id_pago,
+      numero_factura: pagoObj.numero_factura || (pagoObj.id_factura ? `Fact. #${pagoObj.id_factura}` : null),
+      cliente: data?.cliente,
+      fecha_pago: pagoObj.fecha_pago,
+      monto: pagoObj.monto,
+      metodo_pago: pagoObj.metodo_pago,
+      referencia: pagoObj.referencia,
+      saldo_anterior: pagoObj.saldo_anterior,
+      saldo_restante: pagoObj.saldo_restante !== undefined ? pagoObj.saldo_restante : data?.cliente?.saldo_actual,
+    });
+  };
+
+  const handleDownloadReceipt = (pagoObj) => {
+    descargarReciboPDF({
+      id_pago: pagoObj.id_pago,
+      numero_factura: pagoObj.numero_factura || (pagoObj.id_factura ? `Fact. #${pagoObj.id_factura}` : null),
+      cliente: data?.cliente,
+      fecha_pago: pagoObj.fecha_pago,
+      monto: pagoObj.monto,
+      metodo_pago: pagoObj.metodo_pago,
+      referencia: pagoObj.referencia,
+      saldo_anterior: pagoObj.saldo_anterior,
+      saldo_restante: pagoObj.saldo_restante !== undefined ? pagoObj.saldo_restante : data?.cliente?.saldo_actual,
+    });
+  };
 
   const handleRegistrarAbono = async (e) => {
     e.preventDefault();
     setAbonoError('');
     setAbonoSuccess('');
+    setUltimoPago(null);
 
     const monto = parseFloat(abonoMonto);
     if (!monto || monto <= 0) {
@@ -81,6 +118,17 @@ export default function ClienteDetallePanel({
 
       if (res.success) {
         setAbonoSuccess(`Abono de $${monto.toFixed(2)} registrado correctamente. Nuevo saldo: $${res.nuevoSaldo.toFixed(2)}`);
+        setUltimoPago({
+          id_pago: res.pago?.id_pago,
+          numero_factura: facturaPendiente?.numero_factura,
+          cliente: data?.cliente,
+          fecha_pago: res.pago?.fecha_pago || new Date().toISOString().split('T')[0],
+          monto: monto,
+          metodo_pago: abonoMetodo,
+          referencia: abonoRef || 'Abono en ventanilla',
+          saldo_anterior: data?.cliente?.saldo_actual,
+          saldo_restante: res.nuevoSaldo,
+        });
         setAbonoMonto('');
         setAbonoRef('');
         setShowAbonoForm(false);
@@ -172,11 +220,35 @@ export default function ClienteDetallePanel({
             </div>
           </div>
 
-          {/* Alert messages */}
+          {/* Alert messages & Receipt Actions (Historia 5.5) */}
           {abonoSuccess && (
             <div style={styles.successBox}>
-              <CheckCircle2 size={16} />
-              <span>{abonoSuccess}</span>
+              <div style={styles.successTopRow}>
+                <CheckCircle2 size={16} />
+                <span>{abonoSuccess}</span>
+              </div>
+              {ultimoPago && (
+                <div style={styles.receiptActionsRow}>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintReceipt(ultimoPago)}
+                    style={styles.printReceiptBtn}
+                    title="Imprimir comprobante físico de abono"
+                  >
+                    <Printer size={13} />
+                    <span>Imprimir Recibo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadReceipt(ultimoPago)}
+                    style={styles.downloadReceiptBtn}
+                    title="Descargar Recibo en PDF"
+                  >
+                    <Download size={13} />
+                    <span>Recibo PDF</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -305,21 +377,47 @@ export default function ClienteDetallePanel({
             </button>
           </div>
 
-          {/* Tab Content: Facturas */}
+          {/* Tab Content: Facturas (Historia 5.3) */}
           {activeTab === 'facturas' && (
             <div style={styles.historyList}>
+              {/* Summary of pending invoice balances */}
+              <div style={styles.invoicesSummaryBox}>
+                <div>
+                  <span style={styles.invoicesSummaryLabel}>Saldo Pendiente en Facturas:</span>
+                  <div style={styles.invoicesSummaryVal} className="num-mono">
+                    ${data.facturas
+                      .filter((f) => f.estado !== 'ANULADA')
+                      .reduce((acc, f) => acc + Number(f.saldo_pendiente || 0), 0)
+                      .toFixed(2)}
+                  </div>
+                </div>
+                <div style={styles.invoicesSummaryRight}>
+                  <span style={styles.invoicesSummaryPill}>
+                    {data.facturas.filter((f) => f.estado === 'PENDIENTE').length} pendientes
+                  </span>
+                </div>
+              </div>
+
               {data.facturas.length === 0 ? (
                 <div style={styles.emptyHistory}>
                   No hay facturas registradas para este cliente todavía.
                 </div>
               ) : (
                 data.facturas.map((f) => (
-                  <div key={f.id_factura} style={styles.historyItem}>
+                  <div
+                    key={f.id_factura}
+                    style={styles.historyItemClickable}
+                    onClick={() => onVerFactura && onVerFactura(f.id_factura)}
+                    title="Haz clic para ver el detalle de esta factura"
+                  >
                     <div style={styles.historyItemTop}>
                       <div>
-                        <span style={styles.historyId} className="num-mono">
-                          #FACT. {f.numero_factura}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span style={styles.historyId} className="num-mono">
+                            #FACT. {f.numero_factura}
+                          </span>
+                          <Eye size={13} color="#1E4E79" />
+                        </div>
                         <div style={styles.historyDate}>
                           <Calendar size={12} />
                           <span>{f.fecha_emision}</span>
@@ -328,23 +426,38 @@ export default function ClienteDetallePanel({
                       <span
                         style={{
                           ...styles.invoiceStateTag,
-                          backgroundColor: f.estado === 'PAGADA' ? '#ECFDF5' : '#FFFBEB',
-                          color: f.estado === 'PAGADA' ? '#059669' : '#D97706',
+                          backgroundColor:
+                            f.estado === 'PAGADA' ? '#ECFDF5' : f.estado === 'ANULADA' ? '#FEF2F2' : '#FFFBEB',
+                          color:
+                            f.estado === 'PAGADA' ? '#059669' : f.estado === 'ANULADA' ? '#DC2626' : '#D97706',
                         }}
                       >
                         {f.estado}
                       </span>
                     </div>
 
-                    <div style={styles.historyItemBottom}>
-                      <span style={styles.historySub}>
-                        Total: <strong className="num-mono">${Number(f.total_factura || 0).toFixed(2)}</strong>
-                      </span>
-                      {Number(f.saldo_pendiente || 0) > 0 && (
-                        <span style={styles.historyPending}>
-                          Pendiente: <strong className="num-mono">${Number(f.saldo_pendiente || 0).toFixed(2)}</strong>
+                    <div style={styles.historyItemMetrics}>
+                      <div style={styles.metricCol}>
+                        <span style={styles.metricLabel}>Total:</span>
+                        <strong className="num-mono">${Number(f.total_factura || 0).toFixed(2)}</strong>
+                      </div>
+                      <div style={styles.metricCol}>
+                        <span style={styles.metricLabel}>Abonado:</span>
+                        <span className="num-mono" style={{ color: '#059669', fontWeight: '700' }}>
+                          ${Number(f.total_abonado || 0).toFixed(2)}
                         </span>
-                      )}
+                      </div>
+                      <div style={styles.metricCol}>
+                        <span style={styles.metricLabel}>Pendiente:</span>
+                        <strong
+                          className="num-mono"
+                          style={{
+                            color: Number(f.saldo_pendiente || 0) > 0 ? '#DC2626' : '#059669',
+                          }}
+                        >
+                          ${Number(f.saldo_pendiente || 0).toFixed(2)}
+                        </strong>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -352,7 +465,7 @@ export default function ClienteDetallePanel({
             </div>
           )}
 
-          {/* Tab Content: Abonos */}
+          {/* Tab Content: Abonos (Historia 5.5) */}
           {activeTab === 'abonos' && (
             <div style={styles.historyList}>
               {data.pagos.length === 0 ? (
@@ -372,7 +485,29 @@ export default function ClienteDetallePanel({
                           <span>{p.fecha_pago}</span>
                         </div>
                       </div>
-                      <span style={styles.methodTag}>{p.metodo_pago}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={styles.methodTag}>{p.metodo_pago}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePrintReceipt({
+                              id_pago: p.id_pago,
+                              numero_factura: p.id_factura ? p.id_factura : null,
+                              fecha_pago: p.fecha_pago,
+                              monto: p.monto,
+                              metodo_pago: p.metodo_pago,
+                              referencia: p.referencia,
+                              saldo_restante: data.cliente?.saldo_actual,
+                            });
+                          }}
+                          style={styles.abonoReceiptBtn}
+                          title="Imprimir comprobante físico de este abono"
+                        >
+                          <Printer size={12} />
+                          <span>Recibo</span>
+                        </button>
+                      </div>
                     </div>
                     {p.referencia && (
                       <div style={styles.pagoRefText}>{p.referencia}</div>
@@ -528,16 +663,54 @@ const styles = {
     cursor: 'pointer',
   },
   successBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
     backgroundColor: '#ECFDF5',
     color: '#065F46',
     border: '1px solid #A7F3D0',
-    padding: '10px 14px',
+    padding: '12px 14px',
     borderRadius: '8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  successTopRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
     fontSize: '12px',
     fontWeight: '600',
+  },
+  receiptActionsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '2px',
+  },
+  printReceiptBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    backgroundColor: '#059669',
+    color: '#FFFFFF',
+    border: 'none',
+    padding: '5px 10px',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    boxShadow: '0 2px 4px rgba(5, 150, 105, 0.25)',
+  },
+  downloadReceiptBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    backgroundColor: '#FFFFFF',
+    color: '#059669',
+    border: '1px solid #6EE7B7',
+    padding: '5px 10px',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '700',
+    cursor: 'pointer',
   },
   errorBox: {
     display: 'flex',
@@ -661,6 +834,82 @@ const styles = {
     textAlign: 'center',
     color: '#94A3B8',
     fontSize: '12px',
+  },
+  invoicesSummaryBox: {
+    backgroundColor: '#F1F5F9',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    padding: '10px 12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '4px',
+  },
+  invoicesSummaryLabel: {
+    fontSize: '11px',
+    color: '#64748B',
+    display: 'block',
+  },
+  invoicesSummaryVal: {
+    fontSize: '14px',
+    fontWeight: '800',
+    color: '#1E4E79',
+    marginTop: '2px',
+  },
+  invoicesSummaryRight: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  invoicesSummaryPill: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#D97706',
+    backgroundColor: '#FEF3C7',
+    padding: '3px 8px',
+    borderRadius: '12px',
+  },
+  historyItemClickable: {
+    backgroundColor: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderRadius: '8px',
+    padding: '10px 12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  historyItemMetrics: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '6px',
+    backgroundColor: '#FFFFFF',
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: '1px solid #EDF2F7',
+    marginTop: '4px',
+  },
+  metricCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  metricLabel: {
+    fontSize: '10px',
+    color: '#64748B',
+  },
+  abonoReceiptBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #CBD5E1',
+    color: '#1E4E79',
+    padding: '3px 7px',
+    borderRadius: '5px',
+    fontSize: '10px',
+    fontWeight: '700',
+    cursor: 'pointer',
   },
   historyItem: {
     backgroundColor: '#F8FAFC',

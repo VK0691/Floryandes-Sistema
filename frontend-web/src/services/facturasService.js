@@ -363,3 +363,129 @@ export async function anularFactura(id_factura, motivo, usuarioId = 1) {
     return { success: false, error: err.message || 'Error al anular factura' };
   }
 }
+
+/**
+ * Registrar un nuevo abono a una factura existente (Historia 5.2)
+ * - Registra en tabla Pago
+ * - Actualiza total_abonado y saldo_pendiente de la factura
+ * - Si saldo_pendiente llega a 0, cambia estado a 'PAGADA'
+ * - Actualiza saldo_actual del cliente
+ * - Registra en Auditoría
+ */
+export async function registrarPagoFactura({
+  id_factura,
+  monto,
+  metodo_pago = 'EFECTIVO',
+  referencia = '',
+  id_usuario = 1,
+}) {
+  try {
+    const abonoMonto = parseFloat(monto);
+    if (!abonoMonto || abonoMonto <= 0) {
+      return { success: false, error: 'El monto del abono debe ser mayor a cero' };
+    }
+    if (abonoMonto > 999999.99) {
+      return { success: false, error: 'El monto del abono no puede superar $999,999.99' };
+    }
+
+    // 1. Obtener datos de la factura
+    const { data: factura, error: fErr } = await supabase
+      .from('factura')
+      .select('*, cliente(*)')
+      .eq('id_factura', id_factura)
+      .single();
+
+    if (fErr) throw fErr;
+    if (!factura) {
+      return { success: false, error: 'Factura no encontrada' };
+    }
+    if (factura.estado === 'ANULADA') {
+      return { success: false, error: 'No se pueden registrar abonos en una factura anulada' };
+    }
+
+    const saldoPendienteActual = Number(factura.saldo_pendiente || 0);
+    if (saldoPendienteActual <= 0 && factura.estado === 'PAGADA') {
+      return { success: false, error: 'Esta factura ya se encuentra totalmente pagada' };
+    }
+
+    const cleanRef = (referencia?.trim() || `Abono a Factura #${factura.numero_factura}`).slice(0, 150);
+
+    // 2. Insertar registro en tabla pago
+    const { data: nuevoPago, error: pErr } = await supabase
+      .from('pago')
+      .insert([{
+        id_factura: id_factura,
+        fecha_pago: new Date().toISOString().split('T')[0],
+        monto: abonoMonto,
+        metodo_pago,
+        referencia: cleanRef,
+        id_usuario: parseInt(id_usuario, 10) || 1,
+      }])
+      .select()
+      .single();
+
+    if (pErr) throw pErr;
+
+    // 3. Actualizar la factura (total_abonado, saldo_pendiente, estado)
+    const nuevoTotalAbonado = Number(factura.total_abonado || 0) + abonoMonto;
+    const nuevoSaldoPendiente = Math.max(0, Number(factura.total_factura || 0) - nuevoTotalAbonado);
+    const nuevoEstado = nuevoSaldoPendiente <= 0 ? 'PAGADA' : 'PENDIENTE';
+
+    const { error: fUpErr } = await supabase
+      .from('factura')
+      .update({
+        total_abonado: nuevoTotalAbonado,
+        saldo_pendiente: nuevoSaldoPendiente,
+        estado: nuevoEstado,
+      })
+      .eq('id_factura', id_factura);
+
+    if (fUpErr) throw fUpErr;
+
+    // 4. Actualizar saldo_actual del cliente
+    let nuevoSaldoCliente = 0;
+    if (factura.id_cliente) {
+      const { data: cData } = await supabase
+        .from('cliente')
+        .select('saldo_actual')
+        .eq('id_cliente', factura.id_cliente)
+        .single();
+
+      if (cData) {
+        nuevoSaldoCliente = Math.max(0, Number(cData.saldo_actual || 0) - abonoMonto);
+        await supabase
+          .from('cliente')
+          .update({ saldo_actual: nuevoSaldoCliente })
+          .eq('id_cliente', factura.id_cliente);
+      }
+    }
+
+    // 5. Registrar en Auditoría
+    try {
+      await supabase.from('auditoria').insert([{
+        tabla_afectada: 'pago',
+        id_registro: nuevoPago.id_pago,
+        accion: 'CREAR',
+        id_usuario: parseInt(id_usuario, 10) || 1,
+        detalle: `Abono de $${abonoMonto.toFixed(2)} registrado para Factura #${factura.numero_factura}. Nuevo saldo restante: $${nuevoSaldoPendiente.toFixed(2)}`,
+      }]);
+    } catch {}
+
+    return {
+      success: true,
+      pago: nuevoPago,
+      factura: {
+        ...factura,
+        total_abonado: nuevoTotalAbonado,
+        saldo_pendiente: nuevoSaldoPendiente,
+        estado: nuevoEstado,
+      },
+      nuevoSaldoPendiente,
+      nuevoEstado,
+      nuevoSaldoCliente,
+    };
+  } catch (err) {
+    console.error('Error in registrarPagoFactura:', err);
+    return { success: false, error: err.message || 'Error al registrar abono en la factura' };
+  }
+}

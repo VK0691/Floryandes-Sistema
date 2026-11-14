@@ -8,6 +8,8 @@ import Clientes from './components/Clientes';
 import Productos from './components/Productos';
 import FacturacionModule from './components/FacturacionModule';
 import ConfiguracionView from './components/ConfiguracionView';
+import ComprasModule from './components/ComprasModule';
+import InventarioModule from './components/InventarioModule';
 import ComprasInventarioPreview from './components/ComprasInventarioPreview';
 import ReportesPreview from './components/ReportesPreview';
 import AccessDenied from './components/AccessDenied';
@@ -88,9 +90,9 @@ function MainApp() {
       case 'productos':
         return <Productos initialStockFilter={productStockFilter} />;
       case 'inventario':
-        return <ComprasInventarioPreview type="inventario" />;
+        return <InventarioModule />;
       case 'compras':
-        return <ComprasInventarioPreview type="compras" />;
+        return <ComprasModule />;
       case 'reportes':
         return <ReportesPreview />;
       case 'configuracion':

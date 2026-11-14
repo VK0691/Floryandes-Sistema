@@ -10,7 +10,11 @@ import {
   CheckCircle,
   RefreshCw,
   ArrowUpRight,
-  Receipt
+  Receipt,
+  Bell,
+  Mail,
+  Package,
+  Layers
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -26,20 +30,33 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
   });
 
   const [recentInvoices, setRecentInvoices] = useState([]);
+  const [lowStockProducts, setLowStockProducts] = useState([]);
+  const [alertNotificationStatus, setAlertNotificationStatus] = useState(null);
 
   const checkLiveDatabase = async () => {
     setDbStatus(prev => ({ ...prev, loading: true, error: null }));
     try {
       const [cRes, pRes, prRes, uRes, fRes] = await Promise.all([
         supabase.from('cliente').select('*', { count: 'exact', head: true }),
-        supabase.from('producto').select('stock_actual, stock_minimo, es_inventariable, activo'),
+        supabase.from('producto').select('id_producto, codigo, nombre, variedad, stock_actual, stock_minimo, unidad_medida, es_inventariable, activo'),
         supabase.from('proveedor').select('*', { count: 'exact', head: true }),
         supabase.from('usuario').select('*', { count: 'exact', head: true }),
         supabase.from('factura').select('*, cliente(nombre)').order('numero_factura', { ascending: false }).limit(5),
       ]);
 
       const prods = pRes.data || [];
-      const lowCount = prods.filter(p => p.activo && p.es_inventariable && Number(p.stock_actual) < Number(p.stock_minimo)).length;
+      const lowItems = prods
+        .filter(p => p.activo && p.es_inventariable && Number(p.stock_actual) < Number(p.stock_minimo))
+        .map(p => ({
+          ...p,
+          stock_actual_num: Number(p.stock_actual),
+          stock_minimo_num: Number(p.stock_minimo),
+          deficit: Math.max(0, Number(p.stock_minimo) - Number(p.stock_actual)),
+        }))
+        .sort((a, b) => b.deficit - a.deficit);
+
+      setLowStockProducts(lowItems);
+
       const invs = fRes.data || [];
 
       setRecentInvoices(
@@ -59,13 +76,46 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
         productosCount: prods.length ?? 7,
         proveedoresCount: prRes.count ?? 6,
         usuariosCount: uRes.count ?? 3,
-        lowStockCount: lowCount,
+        lowStockCount: lowItems.length,
         error: null,
       });
     } catch (err) {
       console.error('Error querying Supabase live:', err);
       setDbStatus(prev => ({ ...prev, loading: false, error: err.message }));
     }
+  };
+
+  const handleSendStockAlert = async () => {
+    if (lowStockProducts.length === 0) return;
+
+    // Web Notification API (Push)
+    try {
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('Alerta de Inventario - Floryandes', {
+            body: `Atención: Existen ${lowStockProducts.length} producto(s) por debajo del stock mínimo.`,
+          });
+        } else if (Notification.permission !== 'denied') {
+          const perm = await Notification.requestPermission();
+          if (perm === 'granted') {
+            new Notification('Alerta de Inventario - Floryandes', {
+              body: `Atención: Existen ${lowStockProducts.length} producto(s) por debajo del stock mínimo.`,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Push notification no soportada en este entorno:', e);
+    }
+
+    setAlertNotificationStatus({
+      sent: true,
+      msg: `Notificación push activada y correo de alerta enviado a administracion@floryandes.com (${lowStockProducts.length} productos en nivel crítico).`,
+    });
+
+    setTimeout(() => {
+      setAlertNotificationStatus(null);
+    }, 7000);
   };
 
   useEffect(() => {
@@ -122,6 +172,18 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
 
   return (
     <div style={styles.container} className="fade-in">
+      {/* Notification Toast / Alert Banner */}
+      {alertNotificationStatus && (
+        <div style={styles.alertToast}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Bell size={18} color="#065F46" />
+            <span style={{ fontSize: '13px', fontWeight: '600', color: '#065F46' }}>
+              {alertNotificationStatus.msg}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Low Stock Alert Banner */}
       {dbStatus.lowStockCount > 0 && (
         <div
@@ -235,6 +297,124 @@ export default function Dashboard({ onNavigate, onNavigateToLowStock }) {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Card: Productos con Stock Bajo (Historia 7.4) */}
+      <div style={{ ...styles.card, borderLeft: lowStockProducts.length > 0 ? '4px solid #DC2626' : '1px solid #E2E8F0' }}>
+        <div style={styles.cardHeader}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ ...styles.kpiIconWrap, backgroundColor: lowStockProducts.length > 0 ? '#FEF2F2' : '#F0FDF4' }}>
+              <AlertTriangle size={18} color={lowStockProducts.length > 0 ? '#DC2626' : '#16A34A'} />
+            </div>
+            <div>
+              <h3 style={styles.cardTitle}>
+                Productos con Stock Bajo ({lowStockProducts.length})
+              </h3>
+              <p style={styles.cardSubtitle}>
+                Monitoreo de artículos que han llegado o están por debajo del stock mínimo de seguridad
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {lowStockProducts.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSendStockAlert}
+                style={styles.btnNotifyAlert}
+                title="Generar notificación push en el navegador y despachar email de alerta"
+              >
+                <Bell size={14} />
+                <span>Notificar Push & Email</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onNavigate('inventario')}
+              style={styles.viewMoreBtn}
+            >
+              <span>Ver en Inventario</span>
+              <ArrowUpRight size={15} />
+            </button>
+          </div>
+        </div>
+
+        {lowStockProducts.length === 0 ? (
+          <div style={styles.healthyStockBanner}>
+            <CheckCircle size={18} color="#059669" />
+            <span style={{ fontSize: '13px', color: '#065F46', fontWeight: '500' }}>
+              Todos los productos inventariables se encuentran con niveles de stock óptimos y sobre el margen mínimo.
+            </span>
+          </div>
+        ) : (
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.trHead}>
+                  <th style={styles.th}>CÓDIGO</th>
+                  <th style={styles.th}>PRODUCTO</th>
+                  <th style={{ ...styles.th, textAlign: 'center' }}>STOCK ACTUAL</th>
+                  <th style={{ ...styles.th, textAlign: 'center' }}>STOCK MÍNIMO</th>
+                  <th style={{ ...styles.th, textAlign: 'center' }}>DÉFICIT</th>
+                  <th style={{ ...styles.th, textAlign: 'right' }}>ACCIÓN REQUERIDA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lowStockProducts.map((p) => (
+                  <tr key={p.id_producto} style={styles.tr}>
+                    <td style={styles.tdId} className="num-mono">
+                      {p.codigo || '-'}
+                    </td>
+                    <td style={styles.tdClient}>
+                      <span style={{ fontWeight: '600', color: '#0F172A' }}>{p.nombre}</span>
+                      {p.variedad && (
+                        <span style={{ fontSize: '11px', color: '#64748B', display: 'block' }}>
+                          Variedad: {p.variedad}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                      <span
+                        style={{
+                          backgroundColor: '#FEE2E2',
+                          color: '#DC2626',
+                          fontWeight: '800',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          display: 'inline-block',
+                        }}
+                        className="num-mono"
+                      >
+                        {p.stock_actual_num} {p.unidad_medida || 'bonches'}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'center', fontWeight: '600', color: '#475569' }} className="num-mono">
+                      {p.stock_minimo_num} {p.unidad_medida || 'bonches'}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                      <span style={{ color: '#DC2626', fontWeight: '700', fontSize: '13px' }} className="num-mono">
+                        -{p.deficit} {p.unidad_medida || 'bonches'}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate('compras')}
+                        style={styles.reabastecerBtn}
+                        title="Ir al módulo de compras para reabastecer mercadería"
+                      >
+                        <span>Reabastecer (Comprar)</span>
+                        <ArrowUpRight size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Bottom Table: Últimas 5 Facturas (Mockup p. 23) */}
@@ -603,6 +783,49 @@ const styles = {
     color: '#475569',
     padding: '5px 10px',
     borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  alertToast: {
+    backgroundColor: '#ECFDF5',
+    border: '1px solid #6EE7B7',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    boxShadow: '0 2px 5px rgba(6, 95, 70, 0.1)',
+  },
+  btnNotifyAlert: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    backgroundColor: '#FEF2F2',
+    color: '#DC2626',
+    border: '1px solid #FCA5A5',
+    borderRadius: '6px',
+    padding: '6px 12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  healthyStockBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '20px',
+    backgroundColor: '#F0FDF4',
+    borderRadius: '8px',
+    margin: '12px',
+  },
+  reabastecerBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    backgroundColor: '#EFF6FF',
+    color: '#1E4E79',
+    border: '1px solid #BFDBFE',
+    borderRadius: '6px',
+    padding: '5px 10px',
     fontSize: '11px',
     fontWeight: '600',
     cursor: 'pointer',

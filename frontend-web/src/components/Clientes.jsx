@@ -23,6 +23,7 @@ import {
 } from '../services/clientesService';
 import ClienteModal from './ClienteModal';
 import ClienteDetallePanel from './ClienteDetallePanel';
+import FacturaDetalleModal from './FacturaDetalleModal';
 
 export default function Clientes({ onFacturarCliente }) {
   const [clientes, setClientes] = useState([]);
@@ -41,6 +42,7 @@ export default function Clientes({ onFacturarCliente }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
   const [selectedClienteId, setSelectedClienteId] = useState(null);
+  const [selectedFacturaId, setSelectedFacturaId] = useState(null);
 
   // Confirm delete modal
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -448,9 +450,18 @@ export default function Clientes({ onFacturarCliente }) {
               if (onFacturarCliente) onFacturarCliente(c);
             }}
             onClienteUpdated={() => loadData()}
+            onVerFactura={(fId) => setSelectedFacturaId(fId)}
           />
         )}
       </div>
+
+      {/* Factura Detalle Modal when clicked from ClienteDetallePanel (Historia 5.3) */}
+      <FacturaDetalleModal
+        facturaId={selectedFacturaId}
+        isOpen={!!selectedFacturaId}
+        onClose={() => setSelectedFacturaId(null)}
+        onFacturaActualizada={() => loadData()}
+      />
 
       {/* Create / Edit Modal */}
       <ClienteModal
